@@ -308,3 +308,23 @@ Each issue references this spec path in its body.
   tab (right, then left); activating a hidden tab shows it; after a restart
   non-active tabs come back discarded and sharing state is cleared; `i18n`
   reads the real `src/_locales` catalogues.
+- 2026-10-14: #4 implementation — `planSwitch` (`src/core/switch.ts`) and
+  `planClose` (`src/core/close.ts`) work on a `PlannerState` snapshot
+  (`src/core/planner-state.ts`: layout, windows with raw `tgActiveGroupId`,
+  tabs with raw `tgGroupId`, `pinned`, `hidden`, `index`, `lastAccessed`,
+  `nativeGrouped`) and validate raw values against the layout themselves. A
+  switch plan lists id arrays in D6 order; moved tabs get `tgGroupId`
+  re-written by the executor. Only the target group's *hidden* tabs in other
+  windows are moved (D6 literal); a visible leftover there (D8) stays for D9.
+  The hide set is every visible non-pinned tab in the window with a valid
+  membership other than the target — this re-tries tabs an earlier hide
+  skipped (D8); tabs without a valid membership are never hidden (D9 adopts
+  them). The most recent tab is chosen among the target's tabs that are in
+  the window or moved there. Switching to the window's own active group or to
+  an unknown group plans nothing. D14 target: the next free group after the
+  closing one, else the nearest free one before it (covers the last row). The
+  closing group is deleted before a fallback default group is created, so
+  closing the last group "Group 1" yields a new "Group 1". The close switch is
+  planned against the layout without the closing group, so it neither hides
+  nor ungroups the closing tabs; the close plan ungroups and removes them
+  afterwards.
