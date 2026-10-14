@@ -8,6 +8,7 @@ import type { GroupView, OkResponse, Request, Response } from "../shared/message
 import {
   findFocusTarget,
   renderList,
+  renderRow,
   type FocusKey,
   type ListHandlers,
   type ListModel,
@@ -34,7 +35,12 @@ export interface Popup {
   idle(): Promise<void>;
 }
 
-type Focus = FocusKey | "new" | undefined;
+/**
+ * What to do after an action: focus an element after a full render ("new" =
+ * the "New group" button), render without moving focus (`undefined`), or
+ * re-render only one row and leave focus alone (`{ row }`).
+ */
+type Focus = FocusKey | "new" | undefined | { readonly row: string };
 
 interface ViewState {
   groups: readonly GroupView[];
@@ -67,8 +73,12 @@ class Session {
     }
     this.view.renaming = undefined;
     this.view.confirming = undefined;
-    const fresh = await send({ type: "getState", windowId });
-    if (fresh.ok) this.view.groups = fresh.state.groups;
+    try {
+      const fresh = await send({ type: "getState", windowId });
+      if (fresh.ok) this.view.groups = fresh.state.groups;
+    } catch (error) {
+      console.error("Tab Groups: getState", error);
+    }
     return undefined;
   }
 
@@ -86,6 +96,10 @@ class Session {
 
   render(focus?: Focus): void {
     const model: ListModel = this.view;
+    if (typeof focus === "object") {
+      renderRow(this.deps.list, focus.row, model, this.handlers, this.deps.t);
+      return;
+    }
     renderList(this.deps.list, model, this.handlers, this.deps.t);
     if (focus === "new") this.deps.newGroupButton.focus();
     else if (focus !== undefined) this.focus(focus);
@@ -113,19 +127,30 @@ function closeGroup(session: Session, groupId: string): void {
   });
 }
 
-function commitRename(session: Session, groupId: string, title: string): void {
+/**
+ * Focus after a rename: Enter (no `next`) returns focus to the row; a blur
+ * into the list re-renders only the renamed row, so the click that caused the
+ * blur still lands; a blur elsewhere leaves focus where the user moved it.
+ */
+function afterRename(session: Session, groupId: string, next: Element | null): Focus {
+  if (next === null) return `switch:${groupId}`;
+  return session.deps.list.contains(next) ? { row: groupId } : undefined;
+}
+
+function commitRename(session: Session, groupId: string, title: string, next: Element | null) {
   const { view } = session;
   view.renaming = undefined;
   const trimmed = title.trim();
   const current = view.groups.find((group) => group.id === groupId)?.title;
+  const focus = afterRename(session, groupId, next);
   // D16: an empty title keeps the old one; an unchanged title sends nothing.
   if (trimmed === "" || trimmed === current) {
-    session.render(`switch:${groupId}`);
+    session.render(focus);
     return;
   }
   session.run(async () => {
-    await session.request({ type: "renameGroup", groupId, title: trimmed });
-    return `switch:${groupId}`;
+    const response = await session.request({ type: "renameGroup", groupId, title: trimmed });
+    return response === undefined && typeof focus === "object" ? undefined : focus;
   });
 }
 
@@ -136,7 +161,7 @@ function createHandlers(session: Session): ListHandlers {
       session.run(async () => {
         // D20: the popup closes after a switch; on failure it shows fresh state.
         if (await session.request({ type: "switchGroup", groupId })) session.deps.close();
-        return undefined;
+        return `switch:${groupId}`;
       });
     },
     startRename(groupId) {
@@ -144,7 +169,7 @@ function createHandlers(session: Session): ListHandlers {
       view.confirming = undefined;
       session.render(`input:${groupId}`);
     },
-    commitRename: (groupId, title) => commitRename(session, groupId, title),
+    commitRename: (groupId, title, next) => commitRename(session, groupId, title, next),
     cancelRename(groupId) {
       view.renaming = undefined;
       session.render(`switch:${groupId}`);

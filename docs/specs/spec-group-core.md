@@ -412,3 +412,11 @@ Each issue references this spec path in its body.
   Popup tests run in vitest's `happy-dom` environment (devDependency) against
   the real background and the fakes; the i18n fake resolves the catalogue by
   path, since a DOM environment replaces the global `URL`.
+- 2026-10-14: #8 review — a blur of the rename field into another row
+  re-renders only the renamed row, so the click that caused the blur (e.g. a
+  switch right after "New group") is not lost; the other rows get their
+  actions back with the next full render. A blur elsewhere (Tab to "New
+  group") leaves focus where the user moved it. A failed switch keeps focus
+  on the clicked row. The active-elsewhere row carries no `title` (it would
+  repeat the visually hidden text). Whether Escape in the rename field or
+  the confirmation closes the Firefox popup is checked in QA.

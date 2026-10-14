@@ -17,7 +17,11 @@ export interface ListModel {
 export interface ListHandlers {
   switchGroup(groupId: string): void;
   startRename(groupId: string): void;
-  commitRename(groupId: string, title: string): void;
+  /**
+   * `next` is the element focus moves to when the field loses focus (blur),
+   * `null` for Enter or when the popup loses focus.
+   */
+  commitRename(groupId: string, title: string, next: Element | null): void;
   cancelRename(groupId: string): void;
   requestClose(group: GroupView): void;
   confirmClose(groupId: string): void;
@@ -70,7 +74,6 @@ function switchButton(doc: Doc, group: GroupView, handlers: ListHandlers, t: Tra
   meta.append(String(group.tabCount));
   const count = tabCountText(t, group.tabCount);
   const label = group.activeElsewhere ? t("activeElsewhere", count) : count;
-  if (group.activeElsewhere) node.title = label;
   node.append(
     element(doc, "span", "row__title", group.title),
     meta,
@@ -103,10 +106,10 @@ function renameInput(doc: Doc, group: GroupView, handlers: ListHandlers, t: Tran
   input.dataset["focus"] = `input:${group.id}`;
   input.setAttribute("aria-label", t("groupNameLabel"));
   let done = false;
-  const finish = (save: boolean) => {
+  const finish = (save: boolean, next: Element | null = null) => {
     if (done) return;
     done = true;
-    if (save) handlers.commitRename(group.id, input.value);
+    if (save) handlers.commitRename(group.id, input.value, next);
     else handlers.cancelRename(group.id);
   };
   input.addEventListener("keydown", (event) => {
@@ -115,7 +118,9 @@ function renameInput(doc: Doc, group: GroupView, handlers: ListHandlers, t: Tran
     event.stopPropagation();
     finish(event.key === "Enter");
   });
-  input.addEventListener("blur", () => finish(true));
+  input.addEventListener("blur", (event) => {
+    finish(true, event.relatedTarget instanceof Element ? event.relatedTarget : null);
+  });
   return input;
 }
 
@@ -173,6 +178,24 @@ export function renderList(
 ): void {
   const doc = list.ownerDocument;
   list.replaceChildren(...model.groups.map((group) => row(doc, group, model, handlers, t)));
+}
+
+/**
+ * Replaces only the row of `groupId`, so the other rows keep their elements
+ * (a click that moved focus out of an inline rename still lands).
+ */
+export function renderRow(
+  list: HTMLElement,
+  groupId: string,
+  model: ListModel,
+  handlers: ListHandlers,
+  t: Translate,
+): void {
+  const index = model.groups.findIndex((group) => group.id === groupId);
+  const group = model.groups[index];
+  const current = list.children[index];
+  if (group === undefined || current === undefined) return renderList(list, model, handlers, t);
+  current.replaceWith(row(list.ownerDocument, group, model, handlers, t));
 }
 
 /** The element carrying `key`, compared literally (no selector built from ids). */

@@ -127,6 +127,7 @@ describe("create and rename (D15, D16)", () => {
     const input = query<HTMLInputElement>(rows()[2]!, "input");
     input.value = "  Work  ";
     key(input, "Enter");
+    input.blur();
     await popup.idle();
     expect(await storedTitles()).toEqual(["Group 1", "Group 2", "Work"]);
     expect(document.activeElement?.textContent).toContain("Work");
@@ -143,6 +144,27 @@ describe("create and rename (D15, D16)", () => {
     await popup.idle();
     expect(await storedTitles()).toEqual(["Group 1", "Research"]);
   });
+
+  it.each(["Group 3", "Work"])(
+    "keeps the clicked row when the rename field blurs into it (title %s)",
+    async (title) => {
+      const popup = await openPopup();
+      const [, g2] = await groupIds(fake);
+      byId("new-group").click();
+      await popup.idle();
+      const input = query<HTMLInputElement>(rows()[2]!, "input");
+      const target = query<HTMLButtonElement>(rows()[1]!, ".row__switch");
+      input.value = title;
+      input.dispatchEvent(new FocusEvent("blur", { relatedTarget: target }));
+      await popup.idle();
+      expect(target.isConnected).toBe(true);
+      target.click();
+      await popup.idle();
+      expect(await storedTitles()).toEqual(["Group 1", "Group 2", title]);
+      expect(sent.at(-1)).toMatchObject({ type: "switchGroup", groupId: g2 });
+      expect(closed).toBe(1);
+    },
+  );
 
   it("cancels on Escape and keeps an empty title from being saved", async () => {
     const popup = await openPopup();
@@ -217,6 +239,7 @@ describe("errors (D21)", () => {
     expect(errors).toHaveBeenCalledWith("Tab Groups:", "switchGroup", "boom");
     expect(sent.at(-1)?.type).toBe("getState");
     expect(closed).toBe(0);
+    expect(document.activeElement).toBe(query(rows()[1]!, ".row__switch"));
     expect(rows()).toHaveLength(2);
   });
 });
