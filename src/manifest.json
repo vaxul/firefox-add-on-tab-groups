@@ -21,6 +21,7 @@
     "scripts": ["background.js"]
   },
   "action": {
-    "default_title": "__MSG_extensionName__"
+    "default_title": "__MSG_extensionName__",
+    "default_popup": "popup.html"
   }
 }

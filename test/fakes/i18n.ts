@@ -1,5 +1,7 @@
 // Fake of `browser.i18n`, backed by the real `src/_locales/<locale>` catalogue.
 import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export interface Entry {
   message: string;
@@ -9,8 +11,10 @@ export interface Entry {
 type Catalogue = Record<string, Entry>;
 
 export function loadCatalogue(locale: string): Catalogue {
-  const url = new URL(`../../src/_locales/${locale}/messages.json`, import.meta.url);
-  return JSON.parse(readFileSync(url, "utf8")) as Catalogue;
+  // A path, not a `URL`: a DOM test environment replaces the global `URL`.
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+  const file = resolve(root, "src/_locales", locale, "messages.json");
+  return JSON.parse(readFileSync(file, "utf8")) as Catalogue;
 }
 
 /** Applies named placeholders, then `$1`…`$9`, then `$$` → `$`. */
