@@ -3,14 +3,14 @@
 import { STARTED_KEY, parseLayout, type GroupLayout } from "../core/layout";
 
 // The layout's fields are stored as top-level `storage.local` keys.
-const LAYOUT_KEYS = ["schemaVersion", "groups"];
+const LAYOUT_KEYS: readonly string[] = ["schemaVersion", "groups"];
 
 /**
  * Reads and validates the group list. Returns `undefined` when the stored
  * schema is newer than this build, so the caller must not overwrite it.
  */
 export async function loadLayout(): Promise<GroupLayout | undefined> {
-  return parseLayout(await browser.storage.local.get(LAYOUT_KEYS));
+  return parseLayout(await browser.storage.local.get([...LAYOUT_KEYS]));
 }
 
 export async function saveLayout(layout: GroupLayout): Promise<void> {
