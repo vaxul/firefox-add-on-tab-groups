@@ -13,10 +13,12 @@ export class Dispatcher {
   /** Remembers a listener result so `flush()` waits for it. */
   track(result: unknown): void {
     if (!(result instanceof Promise)) return;
+    const generation = this.generation;
     const tracked: Promise<unknown> = result.then(
       () => this.pending.delete(tracked),
       (error: unknown) => {
-        this.errors.push(error);
+        // A listener of a test that was reset before it settled is ignored.
+        if (generation === this.generation) this.errors.push(error);
         this.pending.delete(tracked);
       },
     );

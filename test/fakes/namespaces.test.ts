@@ -156,6 +156,25 @@ describe("reset() and install()", () => {
     expect("browser" in globalThis).toBe(false);
   });
 
+  it("windows.create keeps an explicit normal type", async () => {
+    fake.seedWindow();
+    const created = await windows.create({ type: "normal" });
+    expect(created.type).toBe("normal");
+  });
+
+  it("reset() drops errors of listeners that settle later", async () => {
+    fake.seedWindow();
+    tabs.onCreated.addListener(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      throw new Error("stale");
+    });
+    await tabs.create({});
+    await new Promise((r) => setTimeout(r, 0));
+    fake.reset();
+    await new Promise((r) => setTimeout(r, 10));
+    await expect(fake.flush()).resolves.toBeUndefined();
+  });
+
   it("flush() rethrows a listener error", async () => {
     fake.seedWindow();
     tabs.onCreated.addListener(async () => Promise.reject(new Error("listener failed")));

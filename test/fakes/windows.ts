@@ -30,7 +30,9 @@ function addInitialTabs(world: World, win: WindowRecord, data: browser.windows._
 }
 
 function create(world: World, data: browser.windows._CreateCreateData = {}): Window {
-  const win = world.newWindowRecord(data.type === undefined ? "normal" : "popup");
+  const win = world.newWindowRecord(
+    data.type === undefined || data.type === "normal" ? "normal" : "popup",
+  );
   world.events.windows.onCreated.emitLater(world.snapshotWindow(win));
   addInitialTabs(world, win, data);
   if (data.focused ?? true) world.focus(win);
