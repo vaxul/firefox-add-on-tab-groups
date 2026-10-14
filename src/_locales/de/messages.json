@@ -4,5 +4,13 @@
   },
   "extensionDescription": {
     "message": "Tabs gruppieren, pro Fenster eine Gruppe anzeigen und Gruppen über ein kompaktes Popup wechseln."
+  },
+  "defaultGroupTitle": {
+    "message": "Gruppe $1",
+    "description": "Default title of a new group; $1 is the smallest unused number."
+  },
+  "actionTitle": {
+    "message": "Tab Groups — $1",
+    "description": "Toolbar button tooltip; $1 is the title of the window's active group."
   }
 }
