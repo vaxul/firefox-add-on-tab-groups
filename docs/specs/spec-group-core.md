@@ -293,3 +293,18 @@ Each issue references this spec path in its body.
   `undefined` so the caller does not overwrite data it cannot read. Rename and
   delete with an unknown id, and rename to a blank title, return the layout
   unchanged (same object).
+- 2026-10-14: Fakes (#2) — one shared `World` backs `tabs`, `windows`, and
+  `sessions`; `createFakeBrowser()` in `test/fakes/browser.ts` composes all
+  namespaces, `install()` sets `globalThis.browser` and `navigator.locks`.
+  Event timing (F4): `onDetached`/`onAttached` are delivered synchronously
+  inside `tabs.move`; every other event is delivered in a later macrotask, and
+  `flush()` waits for all deliveries and listener promises and rethrows
+  listener errors. Seeding (`seedWindow`), `simulateRestart()`, and
+  `simulateDisableEnable()` fire no events; a test emits `runtime.onStartup` /
+  `onInstalled` itself (F8). Modelling choices not covered by F1–F10, to be
+  checked in QA: `tabs.hide` also skips pinned tabs; a cross-window move drops
+  the native `groupId`; a source window left without a visible tab after a
+  move closes like F5; removing the active tab activates the adjacent visible
+  tab (right, then left); activating a hidden tab shows it; after a restart
+  non-active tabs come back discarded and sharing state is cleared; `i18n`
+  reads the real `src/_locales` catalogues.
