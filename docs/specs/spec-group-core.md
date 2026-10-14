@@ -215,7 +215,7 @@ sequenceDiagram
 
 ## Tracking
 
-- Milestone: added at acceptance
+- Milestone: [Phase 1 — Foundation and group core](https://github.com/vaxul/firefox-add-on-tab-groups/milestone/1)
 - Issues: created from this spec once it is merged (one per implementable step)
 
 Each issue references this spec path in its body.
