@@ -66,9 +66,8 @@ export function resolvedActiveGroup(
   owners: ReadonlyMap<string, number>,
   windowId: number,
 ): string | undefined {
-  const window = snapshot.windows.find((candidate) => candidate.id === windowId);
-  if (window === undefined || !isNormal(window)) return undefined;
-  const groupId = validGroupId(snapshot.layout, window.activeGroupId);
+  if (!isNormalWindow(snapshot, windowId)) return undefined;
+  const groupId = validGroupId(snapshot.layout, findWindow(snapshot, windowId)?.activeGroupId);
   return groupId !== undefined && owners.get(groupId) === windowId ? groupId : undefined;
 }
 

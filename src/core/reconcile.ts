@@ -26,6 +26,9 @@ export interface TabMove {
  * `show`; `activate` or, if `createTab`, create one tab without `url` that
  * joins `activeGroupId`; store `activeGroupId` as the window's
  * `tgActiveGroupId` and write `assign`; `ungroup`; `hide`.
+ * Plans for several windows (start, D10) are made one at a time: apply a
+ * plan, re-read the snapshot, then plan the next window, so new groups get
+ * distinct default titles and no persisted layout is overwritten.
  */
 export interface ReconcilePlan {
   readonly windowId: number;
@@ -125,10 +128,10 @@ function activation(
 
 function resolveGroup(
   snapshot: Snapshot,
+  owners: ReadonlyMap<string, number>,
   windowId: number,
   deps: GroupDeps,
 ): { layout: GroupLayout; createdGroup: Group | undefined; activeGroupId: string } {
-  const owners = activeOwners(snapshot);
   const kept = resolvedActiveGroup(snapshot, owners, windowId);
   if (kept !== undefined) {
     return { layout: snapshot.layout, createdGroup: undefined, activeGroupId: kept };
@@ -149,10 +152,11 @@ export function planReconcile(
   deps: GroupDeps,
 ): ReconcilePlan | undefined {
   if (!isNormalWindow(snapshot, windowId)) return undefined;
-  const { layout, createdGroup, activeGroupId } = resolveGroup(snapshot, windowId, deps);
+  const owners = activeOwners(snapshot);
+  const { layout, createdGroup, activeGroupId } = resolveGroup(snapshot, owners, windowId, deps);
   const ctx: Context = {
     snapshot,
-    owners: activeOwners(snapshot),
+    owners,
     windowId,
     activeGroupId,
     adopting: createdGroup !== undefined,
