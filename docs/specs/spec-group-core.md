@@ -368,3 +368,26 @@ Each issue references this spec path in its body.
   and `clear`; `reconcile` is left to the caller. Results report the ids
   `tabs.hide` did hide (D8). Tooltip and badge (D6 step 8, D17) stay with the
   background.
+- 2026-10-14: #7 implementation — `src/background/operation.ts` holds the
+  injected `LockFn` (`webLock` = `navigator.locks.request("tab-groups-op")`),
+  an immutable `Context` (`lock`, `GroupDeps`), and `runOperation`: a failure
+  is logged, the lock is released, and D9 runs for the affected windows in a
+  new lock request before the error is rethrown. Event handlers
+  (`src/background/events.ts`) name the tab's or new window's id as affected;
+  popup requests name all normal windows, since a switch or close can touch
+  tabs in any window. `reconcileWindows` applies one window's D9 plan and
+  re-reads layout and snapshot before planning the next. Badge and tooltips
+  are refreshed together for all normal windows after every reconciliation
+  and every changing request (a superset of D22; one `windows.getAll` and one
+  window value per window); a window without a valid active group gets its
+  tooltip reset to the manifest default. The `action` adapter, the
+  `windows.getAll` listing, and the browser-backed `GroupDeps`
+  (`crypto.randomUUID`, i18n `defaultGroupTitle`) live in
+  `src/platform/indicators.ts`. Messages (`src/shared/messages.ts`) are
+  validated with `isRequest`; malformed ones get `{ ok: false, error:
+  "Invalid message" }` without taking the lock, and messages from other
+  senders than the extension are ignored. `getState` also runs inside the
+  lock so it never reads a half-applied operation. The manifest gets an
+  `action` with `default_title` only; `default_popup` follows with the popup
+  (D23). A newer stored schema makes every operation fail with an error
+  instead of overwriting the stored layout.
