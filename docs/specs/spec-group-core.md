@@ -345,3 +345,20 @@ Each issue references this spec path in its body.
   membership joins the active group and is shown (as D9 b, c), and a pinned
   tab that still carries `tgGroupId` gets it cleared (D7). A window that lost a
   duplicate active group counts as having no active group in D11.
+- 2026-10-14: Platform adapters (#6) — `src/platform/group-store.ts` stores
+  the D1 layout as the top-level `storage.local` keys `schemaVersion` and
+  `groups` and loads it through `parseLayout` (a newer schema yields
+  `undefined`); `claimStart()` reads and sets `tgStarted` in `storage.session`
+  and returns `true` once per start (D10). `src/platform/tab-meta.ts` returns
+  `sessions` values raw (non-strings as `undefined`; validation stays in core)
+  and `readWindows()` snapshots all normal windows with tabs, membership, and
+  active group, reading every value in parallel. `src/platform/executor.ts`
+  defines the plan shape until the core planners land: `SwitchPlan` = `focus`
+  (window id) or `apply` with a `WindowPlan` (`assign`, `moves`, `show`,
+  `activateTabId` / `createTabInGroup`, `activeGroupId`, `ungroup`, `hide`),
+  applied in D6 order; each non-empty step is one call with an id array, moves
+  go to the end of the target window (`index: -1`) and re-write `tgGroupId`
+  for every moved tab (F3), a created tab gets its membership written
+  directly, and the result reports the ids `tabs.hide` did hide (D8).
+  `removeTabs` ungroups before its single `tabs.remove` (D14). Tooltip and
+  badge updates (D6 step 8, D17) stay with the background.
