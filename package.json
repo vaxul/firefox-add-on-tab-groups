@@ -1,0 +1,31 @@
+{
+  "name": "tab-groups",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Firefox extension: hide-based tab groups with a compact popup, successor of Panorama Tab Groups",
+  "license": "MPL-2.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run --coverage",
+    "build": "node scripts/build.mjs",
+    "lint:ext": "web-ext lint --source-dir dist --self-hosted",
+    "start": "npm run build && web-ext run --source-dir dist",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build && npm run lint:ext"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/firefox-webext-browser": "^143.0.1",
+    "@vitest/coverage-v8": "^5.0.4",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.12.0",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.4",
+    "web-ext": "^10.7.0"
+  }
+}

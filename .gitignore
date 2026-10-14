@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+web-ext-artifacts/
+.env
+.claude/worktrees/
+.claude/settings.local.json

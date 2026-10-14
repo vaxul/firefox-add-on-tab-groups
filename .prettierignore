@@ -1,0 +1,7 @@
+dist/
+coverage/
+web-ext-artifacts/
+package-lock.json
+docs/
+*.md
+.claude/

@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "Tab Groups"
+  },
+  "extensionDescription": {
+    "message": "Group tabs, show one group per window, and switch groups from a compact popup."
+  }
+}
