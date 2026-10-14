@@ -51,7 +51,7 @@
    stored records (`docs/specs/spec-group-core.md` D9, D10).
 5. **Move selected tabs** — `menus.onShown` rebuilds the group entries from the
    group list and calls `menus.refresh`; `menus.onClicked` → all highlighted
-   tabs → queue → move (ungroup from native group, reassign, hide if the target
+   tabs → lock → move (ungroup from native group, reassign, hide if the target
    group is not the window's active group).
 6. **Import** — options page → parse/convert in `core` → match backup windows
    and tabs against open ones in `core` → executor applies assignments, creates
