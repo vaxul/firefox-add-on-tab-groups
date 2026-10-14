@@ -345,3 +345,26 @@ Each issue references this spec path in its body.
   membership joins the active group and is shown (as D9 b, c), and a pinned
   tab that still carries `tgGroupId` gets it cleared (D7). A window that lost a
   duplicate active group counts as having no active group in D11.
+- 2026-10-14: Platform adapters (#6) — `src/platform/group-store.ts` stores
+  the D1 layout as the top-level `storage.local` keys `schemaVersion` and
+  `groups` and loads it through `parseLayout` (a newer schema yields
+  `undefined`); `claimStart()` reads and sets `tgStarted` in `storage.session`
+  and returns `true` once per start (D10). `src/platform/tab-meta.ts` returns
+  `sessions` values raw (non-strings as `undefined`; validation stays in core)
+  and reads all values of all windows in parallel; `readPlannerState` builds
+  the `PlannerState` of the switch/close planners (normal windows only),
+  `readSnapshot` the D9/D11 `Snapshot` (all window types). The executor
+  consumes the core plan types directly: `applySwitch` (`none` / `focus` /
+  `switch`) and `applyClose` in `src/platform/executor.ts`, `applyReconcile`
+  and `applyRecheck` in `src/platform/reconcile-executor.ts`. Each non-empty
+  step is one call with an id array; moves go to the end of the target
+  window (`index: -1`) and re-write `tgGroupId` afterwards (F3) — for a
+  switch with the target group, for a reconcile move with each tab's
+  membership read before the move, then the moved tabs are shown. A created
+  tab gets its membership written directly. A plan with `createdGroup`
+  persists its layout before the window's `tgActiveGroupId` is written.
+  `applyReconcile` handles one window per call; the caller re-reads the
+  snapshot before planning the next window. `applyRecheck` handles `assign`
+  and `clear`; `reconcile` is left to the caller. Results report the ids
+  `tabs.hide` did hide (D8). Tooltip and badge (D6 step 8, D17) stay with the
+  background.
