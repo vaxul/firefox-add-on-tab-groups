@@ -415,7 +415,9 @@ Each issue references this spec path in its body.
 - 2026-10-14: #8 review — a blur of the rename field into another row
   re-renders only the renamed row, so the click that caused the blur (e.g. a
   switch right after "New group") is not lost; the other rows get their
-  actions back with the next full render. A blur elsewhere (Tab to "New
+  actions appended in place (keyboard users keep rename/close after Tab). A
+  row patch falls back to a full render when the rows no longer match the
+  groups (`data-group` per row). A blur elsewhere (Tab to "New
   group") leaves focus where the user moved it. A failed switch keeps focus
   on the clicked row. The active-elsewhere row carries no `title` (it would
   repeat the visually hidden text). Whether Escape in the rename field or

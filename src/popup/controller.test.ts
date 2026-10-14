@@ -158,6 +158,7 @@ describe("create and rename (D15, D16)", () => {
       input.dispatchEvent(new FocusEvent("blur", { relatedTarget: target }));
       await popup.idle();
       expect(target.isConnected).toBe(true);
+      expect(rows().every((row) => row.querySelector(".row__actions"))).toBe(true);
       target.click();
       await popup.idle();
       expect(await storedTitles()).toEqual(["Group 1", "Group 2", title]);

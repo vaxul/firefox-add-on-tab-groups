@@ -150,6 +150,7 @@ function confirmBox(doc: Doc, group: GroupView, handlers: ListHandlers, t: Trans
 
 function row(doc: Doc, group: GroupView, model: ListModel, handlers: ListHandlers, t: Translate) {
   const item = element(doc, "li", "row");
+  item.dataset["group"] = group.id;
   if (group.id === model.confirming) {
     item.className = "";
     item.append(confirmBox(doc, group, handlers, t));
@@ -181,8 +182,10 @@ export function renderList(
 }
 
 /**
- * Replaces only the row of `groupId`, so the other rows keep their elements
- * (a click that moved focus out of an inline rename still lands).
+ * Replaces only the row of `groupId` and gives the other rows back their
+ * actions without replacing them, so a click or Tab that moved focus out of
+ * an inline rename still lands. Falls back to a full render when the rows no
+ * longer match the groups.
  */
 export function renderRow(
   list: HTMLElement,
@@ -191,11 +194,19 @@ export function renderRow(
   handlers: ListHandlers,
   t: Translate,
 ): void {
-  const index = model.groups.findIndex((group) => group.id === groupId);
-  const group = model.groups[index];
-  const current = list.children[index];
-  if (group === undefined || current === undefined) return renderList(list, model, handlers, t);
-  current.replaceWith(row(list.ownerDocument, group, model, handlers, t));
+  const items = [...list.children] as HTMLElement[];
+  const matches =
+    items.length === model.groups.length &&
+    model.groups.every((group, i) => items[i]?.dataset["group"] === group.id);
+  if (!matches) return renderList(list, model, handlers, t);
+  const doc = list.ownerDocument;
+  model.groups.forEach((group, i) => {
+    const item = items[i] as HTMLElement;
+    if (group.id === groupId) item.replaceWith(row(doc, group, model, handlers, t));
+    else if (item.querySelector(".row__actions") === null && item.querySelector(".row__switch")) {
+      item.append(rowActions(doc, group, handlers, t));
+    }
+  });
 }
 
 /** The element carrying `key`, compared literally (no selector built from ids). */
