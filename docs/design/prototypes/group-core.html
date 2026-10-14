@@ -1,0 +1,343 @@
+<!doctype html>
+<!--
+  Phase 1 popup prototype (spec: docs/specs/spec-group-core.md).
+  Tokens mirror docs/design.md front-matter; the implementation moves the
+  :root block into src/shared/tokens.css unchanged. Three frames show the
+  states the implementer builds: list, inline rename, inline close confirmation.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Group core popup</title>
+    <style>
+      /* ---- tokens (src/shared/tokens.css) ---- */
+      :root {
+        color-scheme: light dark;
+        --color-background: light-dark(#ffffff, #42414d);
+        --color-foreground: light-dark(#15141a, #fbfbfe);
+        --color-primary: light-dark(#0061e0, #00ddff);
+        --color-secondary: light-dark(#f0f0f4, #2b2a33);
+        --color-accent: light-dark(#0061e0, #00ddff);
+        --color-muted: light-dark(#5b5b66, #bfbfc9);
+        --color-border: color-mix(in srgb, currentColor 24%, transparent);
+        --color-destructive: light-dark(#c50042, #ff848b);
+        --font-sans: system-ui;
+        --font-size-small: 12px;
+        --font-size-root: 13px;
+        --font-size-large: 15px;
+        --font-weight-bold: 600;
+        --space-xxsmall: 2px;
+        --space-xsmall: 4px;
+        --space-small: 8px;
+        --space-medium: 12px;
+        --space-large: 16px;
+        --border-radius-small: 4px;
+        --border-radius-medium: 8px;
+        --focus-outline: 2px solid var(--color-accent);
+        --focus-outline-offset: 2px;
+      }
+      :root[data-scheme="light"] { color-scheme: light; }
+      :root[data-scheme="dark"] { color-scheme: dark; }
+
+      /* ---- prototype page only ---- */
+      body {
+        margin: 0;
+        padding: var(--space-large);
+        background: light-dark(#e0e0e6, #1c1b22);
+        color: var(--color-foreground);
+        font: var(--font-size-root) / 1.4 var(--font-sans);
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-large);
+        align-items: flex-start;
+      }
+      figure { margin: 0; }
+      figcaption {
+        font-size: var(--font-size-small);
+        color: var(--color-muted);
+        margin-bottom: var(--space-xsmall);
+      }
+
+      /* ---- popup ---- */
+      .popup {
+        width: 300px;
+        background: var(--color-background);
+        color: var(--color-foreground);
+        border: 1px solid var(--color-border);
+        border-radius: var(--border-radius-medium);
+        overflow: hidden;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-small);
+        padding: var(--space-small) var(--space-medium);
+      }
+      .bar--header { border-bottom: 1px solid var(--color-border); }
+      .bar--footer { border-top: 1px solid var(--color-border); justify-content: flex-end; }
+      .bar h1 {
+        margin: 0;
+        font-size: var(--font-size-large);
+        font-weight: var(--font-weight-bold);
+        line-height: 1.2;
+      }
+      .list {
+        list-style: none;
+        margin: 0;
+        padding: var(--space-xsmall);
+      }
+      .row {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: var(--space-small);
+        min-height: 32px;
+        padding: 0 var(--space-small);
+        border-radius: var(--border-radius-small);
+      }
+      .row__switch {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: var(--space-small);
+        min-width: 0;
+        min-height: 32px;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+      }
+      .row__switch:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-outline-offset); border-radius: var(--border-radius-small); }
+      .row:hover { background: var(--color-secondary); }
+      .row--active::before {
+        content: "";
+        position: absolute;
+        inset-block: var(--space-xsmall);
+        inset-inline-start: 0;
+        width: 3px;
+        border-radius: var(--border-radius-small);
+        background: var(--color-accent);
+      }
+      .row--active .row__title { font-weight: var(--font-weight-bold); }
+      .row__title {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .row__meta {
+        display: flex;
+        align-items: center;
+        gap: var(--space-xsmall);
+        color: var(--color-muted);
+        font-size: var(--font-size-small);
+        font-variant-numeric: tabular-nums;
+      }
+      /* Actions stay focusable and in the a11y tree; only their opacity changes. */
+      .row__actions { display: flex; gap: var(--space-xxsmall); opacity: 0; }
+      .row:hover .row__actions,
+      .row:focus-within .row__actions,
+      .row--active .row__actions { opacity: 1; }
+      @media (hover: none) { .row__actions { opacity: 1; } }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      .icon-button {
+        display: inline-grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--border-radius-small);
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+      .icon-button:hover { background: var(--color-secondary); }
+      .row:hover .icon-button:hover { background: var(--color-background); }
+      .icon-button:focus-visible,
+      .button:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-outline-offset); }
+      .icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-xsmall);
+        min-height: 24px;
+        padding: var(--space-xsmall) var(--space-small);
+        border: 1px solid var(--color-border);
+        border-radius: var(--border-radius-small);
+        background: var(--color-secondary);
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      .button--plain { border-color: transparent; background: transparent; }
+      .button--plain:hover { background: var(--color-secondary); }
+      .button--destructive { color: var(--color-destructive); }
+
+      .input {
+        flex: 1;
+        min-width: 0;
+        min-height: 24px;
+        padding: 0 var(--space-small);
+        border: 1px solid var(--color-border);
+        border-radius: var(--border-radius-small);
+        background: var(--color-background);
+        color: inherit;
+        font: inherit;
+      }
+      .input:focus-visible { outline: var(--focus-outline); outline-offset: var(--focus-outline-offset); }
+
+      .confirm {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-small);
+        padding: var(--space-small);
+        border-radius: var(--border-radius-small);
+        background: var(--color-secondary);
+      }
+      .confirm p { margin: 0; }
+      .confirm__actions { display: flex; justify-content: flex-end; gap: var(--space-small); }
+
+      @media (forced-colors: active) {
+        .row--active::before { background: Highlight; }
+        .row:hover { background: Canvas; outline: 1px solid CanvasText; }
+        .button--destructive { color: ButtonText; }
+        .confirm { outline: 1px solid CanvasText; }
+        .icon-button:focus-visible, .button:focus-visible, .input:focus-visible, .row__switch:focus-visible { outline-color: Highlight; }
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-rename" viewBox="0 0 16 16"><path d="M10.5 2.5l3 3L6 13H3v-3z" /></symbol>
+      <symbol id="i-close" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" /></symbol>
+      <symbol id="i-window" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M2 6h12" /></symbol>
+    </svg>
+
+    <!-- Frame 1: group list (D17 marker, D21 counts, active-elsewhere marker) -->
+    <figure>
+      <figcaption>1 · Group list</figcaption>
+      <div class="popup">
+        <header class="bar bar--header"><h1>Tab Groups</h1></header>
+        <ul class="list" aria-label="Groups">
+          <li class="row row--active">
+            <button class="row__switch" aria-current="true">
+              <span class="row__title">Research</span>
+              <span class="row__meta" aria-hidden="true">12</span><span class="visually-hidden">12 tabs</span>
+            </button>
+            <span class="row__actions">
+              <button class="icon-button" title="Rename group" aria-label="Rename group Research"><svg class="icon"><use href="#i-rename" /></svg></button>
+              <button class="icon-button" title="Close group" aria-label="Close group Research"><svg class="icon"><use href="#i-close" /></svg></button>
+            </span>
+          </li>
+          <li class="row">
+            <button class="row__switch">
+              <span class="row__title">Shopping and a rather long group title that is cut</span>
+              <span class="row__meta" aria-hidden="true">4</span><span class="visually-hidden">4 tabs</span>
+            </button>
+            <span class="row__actions">
+              <button class="icon-button" title="Rename group" aria-label="Rename group Shopping"><svg class="icon"><use href="#i-rename" /></svg></button>
+              <button class="icon-button" title="Close group" aria-label="Close group Shopping"><svg class="icon"><use href="#i-close" /></svg></button>
+            </span>
+          </li>
+          <li class="row">
+            <button class="row__switch">
+              <span class="row__title">Work</span>
+              <span class="row__meta" aria-hidden="true"><svg class="icon"><use href="#i-window" /></svg>31</span>
+              <span class="visually-hidden">31 tabs, open in another window</span>
+            </button>
+            <span class="row__actions">
+              <button class="icon-button" title="Rename group" aria-label="Rename group Work"><svg class="icon"><use href="#i-rename" /></svg></button>
+              <button class="icon-button" title="Close group" aria-label="Close group Work"><svg class="icon"><use href="#i-close" /></svg></button>
+            </span>
+          </li>
+          <li class="row">
+            <button class="row__switch">
+              <span class="row__title">Group 4</span>
+              <span class="row__meta" aria-hidden="true">0</span><span class="visually-hidden">0 tabs</span>
+            </button>
+            <span class="row__actions">
+              <button class="icon-button" title="Rename group" aria-label="Rename group Group 4"><svg class="icon"><use href="#i-rename" /></svg></button>
+              <button class="icon-button" title="Close group" aria-label="Close group Group 4"><svg class="icon"><use href="#i-close" /></svg></button>
+            </span>
+          </li>
+        </ul>
+        <footer class="bar bar--footer">
+          <button class="button button--plain"><svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>New group</button>
+        </footer>
+      </div>
+    </figure>
+
+    <!-- Frame 2: inline rename (D15 after create, D16 Enter/blur saves, Escape cancels) -->
+    <figure>
+      <figcaption>2 · Inline rename</figcaption>
+      <div class="popup">
+        <header class="bar bar--header"><h1>Tab Groups</h1></header>
+        <ul class="list" aria-label="Groups">
+          <li class="row">
+            <button class="row__switch"><span class="row__title">Research</span><span class="row__meta" aria-hidden="true">12</span><span class="visually-hidden">12 tabs</span></button>
+          </li>
+          <li class="row row--active">
+            <input class="input" type="text" value="Group 5" aria-label="Group name" autofocus />
+          </li>
+        </ul>
+        <footer class="bar bar--footer">
+          <button class="button button--plain"><svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>New group</button>
+        </footer>
+      </div>
+    </figure>
+
+    <!-- Frame 3: inline close confirmation (D14; only for groups with tabs — an empty group such as "Group 4" closes without it).
+         Destructive text is used only on the `secondary` surface: dark destructive on `background` is 4.26:1, below AA. -->
+    <figure>
+      <figcaption>3 · Close confirmation</figcaption>
+      <div class="popup">
+        <header class="bar bar--header"><h1>Tab Groups</h1></header>
+        <ul class="list" aria-label="Groups">
+          <li class="row row--active">
+            <button class="row__switch" aria-current="true"><span class="row__title">Research</span><span class="row__meta" aria-hidden="true">12</span><span class="visually-hidden">12 tabs</span></button>
+          </li>
+          <li>
+            <div class="confirm" role="group" aria-label="Close group Shopping">
+              <p>Close “Shopping” and its 4 tabs?</p>
+              <div class="confirm__actions">
+                <button class="button">Cancel</button>
+                <button class="button button--destructive">Close group</button>
+              </div>
+            </div>
+          </li>
+          <li class="row">
+            <button class="row__switch"><span class="row__title">Work</span><span class="row__meta" aria-hidden="true"><svg class="icon"><use href="#i-window" /></svg>31</span><span class="visually-hidden">31 tabs, open in another window</span></button>
+          </li>
+          <li class="row">
+            <button class="row__switch"><span class="row__title">Group 4</span><span class="row__meta" aria-hidden="true">0</span><span class="visually-hidden">0 tabs</span></button>
+          </li>
+        </ul>
+        <footer class="bar bar--footer">
+          <button class="button button--plain"><svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>New group</button>
+        </footer>
+      </div>
+    </figure>
+    <script>
+      // Prototype only: ?scheme=light|dark forces a scheme for screenshots.
+      const scheme = new URLSearchParams(location.search).get("scheme");
+      if (scheme) document.documentElement.dataset.scheme = scheme;
+    </script>
+  </body>
+</html>
