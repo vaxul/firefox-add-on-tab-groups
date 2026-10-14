@@ -1,5 +1,5 @@
 {
-  "name": "tab-groups",
+  "name": "@vaxul/tab-groups",
   "version": "0.1.0",
   "private": true,
   "description": "Firefox extension: hide-based tab groups with a compact popup, successor of Panorama Tab Groups",
