@@ -5,6 +5,7 @@ import {
   getWindowActiveGroup,
   readWindow,
   readPlannerState,
+  readSnapshot,
   readWindows,
   removeTabGroup,
   setTabGroup,
@@ -118,5 +119,25 @@ describe("readPlannerState", () => {
       [tabIds[0], "a", true, false],
       [tabIds[1], undefined, false, true],
     ]);
+  });
+});
+
+describe("readSnapshot", () => {
+  it("includes every window type with focus and the tabs' active state", async () => {
+    const layout = { schemaVersion: 1 as const, groups: [] };
+    const normal = fake.seedWindow({ focused: true, tabs: [{ values: { tgGroupId: "x" } }] });
+    const popup = fake.seedWindow({ type: "popup", focused: false, tabs: [{}] });
+    const snapshot = await readSnapshot(layout);
+    expect(snapshot.windows).toEqual([
+      { id: normal.windowId, type: "normal", focused: true, activeGroupId: undefined },
+      { id: popup.windowId, type: "popup", focused: false, activeGroupId: undefined },
+    ]);
+    expect(snapshot.tabs[0]).toMatchObject({
+      id: normal.tabIds[0],
+      active: true,
+      nativeGrouped: false,
+      groupId: "x",
+    });
+    expect(snapshot.tabs).toHaveLength(2);
   });
 });

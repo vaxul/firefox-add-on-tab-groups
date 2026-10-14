@@ -4,6 +4,7 @@
 // is core's job (`validGroupId`).
 import { TAB_GROUP_KEY, WINDOW_ACTIVE_GROUP_KEY, type GroupLayout } from "../core/layout";
 import type { PlannerState } from "../core/planner-state";
+import type { Snapshot } from "../core/snapshot";
 
 export interface TabSnapshot {
   readonly id: number;
@@ -22,6 +23,7 @@ export interface TabSnapshot {
 
 export interface WindowSnapshot {
   readonly id: number;
+  readonly type: string;
   readonly focused: boolean;
   /** Stored `tgActiveGroupId`, unvalidated. */
   readonly activeGroupId: string | undefined;
@@ -80,7 +82,7 @@ async function snapshotWindow(win: browser.windows.Window): Promise<WindowSnapsh
     getWindowActiveGroup(id),
     Promise.all((win.tabs ?? []).map(snapshotTab)),
   ]);
-  return { id, focused: win.focused, activeGroupId, tabs };
+  return { id, type: win.type ?? "normal", focused: win.focused, activeGroupId, tabs };
 }
 
 /**
@@ -89,6 +91,12 @@ async function snapshotWindow(win: browser.windows.Window): Promise<WindowSnapsh
  */
 export async function readWindows(): Promise<WindowSnapshot[]> {
   const windows = await browser.windows.getAll({ populate: true, windowTypes: ["normal"] });
+  return Promise.all(windows.map(snapshotWindow));
+}
+
+/** Like `readWindows`, but every window type (the D9/D11 snapshot carries `type`). */
+export async function readAllWindows(): Promise<WindowSnapshot[]> {
+  const windows = await browser.windows.getAll({ populate: true });
   return Promise.all(windows.map(snapshotWindow));
 }
 
@@ -129,4 +137,34 @@ export function toPlannerState(
 /** Reads the planner snapshot of all normal windows. */
 export async function readPlannerState(layout: GroupLayout): Promise<PlannerState> {
   return toPlannerState(layout, await readWindows());
+}
+
+/** Maps window snapshots to the reconciliation planners' input (`src/core/snapshot.ts`). */
+export function toSnapshot(layout: GroupLayout, windows: readonly WindowSnapshot[]): Snapshot {
+  return {
+    layout,
+    windows: windows.map(({ id, type, focused, activeGroupId }) => ({
+      id,
+      type,
+      focused,
+      activeGroupId,
+    })),
+    tabs: windows.flatMap((win) =>
+      win.tabs.map((tab) => ({
+        id: tab.id,
+        windowId: tab.windowId,
+        pinned: tab.pinned,
+        hidden: tab.hidden,
+        active: tab.active,
+        lastAccessed: tab.lastAccessed,
+        nativeGrouped: tab.nativeGroupId !== -1,
+        groupId: tab.groupId,
+      })),
+    ),
+  };
+}
+
+/** Reads the D9/D11 snapshot of all windows; re-read it after each applied plan. */
+export async function readSnapshot(layout: GroupLayout): Promise<Snapshot> {
+  return toSnapshot(layout, await readAllWindows());
 }

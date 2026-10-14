@@ -37,10 +37,15 @@ async function activateOrCreate(steps: SwitchSteps): Promise<number | undefined>
     await browser.tabs.update(steps.activateTabId, { active: true });
     return undefined;
   }
+  return createTabInGroup(steps.windowId, steps.groupId);
+}
+
+/** Creates one active tab in the window with the membership (empty group, F6). */
+export async function createTabInGroup(windowId: number, groupId: string): Promise<number> {
   // F6: no `url`, so Firefox opens about:newtab.
-  const tab = await browser.tabs.create({ windowId: steps.windowId, active: true });
+  const tab = await browser.tabs.create({ windowId, active: true });
   const tabId = tab.id as number;
-  await setTabGroup(tabId, steps.groupId);
+  await setTabGroup(tabId, groupId);
   return tabId;
 }
 
