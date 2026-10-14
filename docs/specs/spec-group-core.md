@@ -328,3 +328,20 @@ Each issue references this spec path in its body.
   planned against the layout without the closing group, so it neither hides
   nor ungroups the closing tabs; the close plan ungroups and removes them
   afterwards.
+- 2026-10-14: #5 implementation — the planners decide on a read-only
+  `Snapshot` (`src/core/snapshot.ts`: layout, windows with raw stored
+  `tgActiveGroupId`, tabs with raw `tgGroupId`, `hidden`, `pinned`, `active`,
+  `lastAccessed`, native-group flag) built by the platform layer.
+  `activeOwners` applies the D9 (a) tie-break across all normal windows;
+  `planReconcile` (`src/core/reconcile.ts`) returns one plan per window
+  (optional new group and layout, `assign`, `move` per target window, `show`,
+  `activate`/`createTab`, `ungroup`, `hide`) with the executor order documented
+  on the type. Additions beyond D9: if the window's active tab would be hidden
+  or moved away, the plan activates the most recently accessed tab of the
+  active group, or creates one if it has none (as D6 step 4; F1, F5); only
+  visible tabs go into `hide`, and natively grouped ones also into `ungroup`
+  (D13). `planTabRecheck` (`src/core/recheck.ts`) returns `none`, `assign`,
+  `clear`, or `reconcile`; additions beyond D11: a hidden tab without a valid
+  membership joins the active group and is shown (as D9 b, c), and a pinned
+  tab that still carries `tgGroupId` gets it cleared (D7). A window that lost a
+  duplicate active group counts as having no active group in D11.
