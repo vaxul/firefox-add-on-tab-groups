@@ -285,3 +285,11 @@ Each issue references this spec path in its body.
   instead of `visibility` so they stay keyboard- and screen-reader-reachable;
   tab counts carry visually hidden text; destructive text only on the
   `secondary` surface (dark destructive on `background` is 4.26:1).
+- 2026-10-14: #3 implementation — the layout lives in `src/core/layout.ts`
+  (types, `tg*` key constants, `parseLayout`), operations in
+  `src/core/groups.ts`. `parseLayout` validates stored data: nothing stored
+  yields an empty layout, malformed entries and duplicate ids are dropped,
+  titles are trimmed; a `schemaVersion` newer than this build returns
+  `undefined` so the caller does not overwrite data it cannot read. Rename and
+  delete with an unknown id, and rename to a blank title, return the layout
+  unchanged (same object).
