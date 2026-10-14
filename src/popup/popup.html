@@ -1,0 +1,256 @@
+<!doctype html>
+<!--
+  Popup (spec-group-core D20, D23). Built to docs/design/prototypes/group-core.html;
+  tokens live in tokens.css, the list is rendered by popup.js.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tab Groups</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <style>
+      body {
+        width: 300px;
+        margin: 0;
+        background: var(--color-background);
+        color: var(--color-foreground);
+        font: var(--font-size-root) / 1.4 var(--font-sans);
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-small);
+        padding: var(--space-small) var(--space-medium);
+      }
+      .bar--header {
+        border-bottom: 1px solid var(--color-border);
+      }
+      .bar--footer {
+        border-top: 1px solid var(--color-border);
+        justify-content: flex-end;
+      }
+      .bar h1 {
+        margin: 0;
+        font-size: var(--font-size-large);
+        font-weight: var(--font-weight-bold);
+        line-height: 1.2;
+      }
+      .list {
+        list-style: none;
+        margin: 0;
+        padding: var(--space-xsmall);
+      }
+      .row {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: var(--space-small);
+        min-height: 32px;
+        padding: 0 var(--space-small);
+        border-radius: var(--border-radius-small);
+      }
+      .row__switch {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: var(--space-small);
+        min-width: 0;
+        min-height: 32px;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+      }
+      .row__switch:focus-visible {
+        outline: var(--focus-outline);
+        outline-offset: var(--focus-outline-offset);
+        border-radius: var(--border-radius-small);
+      }
+      .row:hover {
+        background: var(--color-secondary);
+      }
+      .row--active::before {
+        content: "";
+        position: absolute;
+        inset-block: var(--space-xsmall);
+        inset-inline-start: 0;
+        width: 3px;
+        border-radius: var(--border-radius-small);
+        background: var(--color-accent);
+      }
+      .row--active .row__title {
+        font-weight: var(--font-weight-bold);
+      }
+      .row__title {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .row__meta {
+        display: flex;
+        align-items: center;
+        gap: var(--space-xsmall);
+        color: var(--color-muted);
+        font-size: var(--font-size-small);
+        font-variant-numeric: tabular-nums;
+      }
+      /* Actions stay focusable and in the a11y tree; only their opacity changes. */
+      .row__actions {
+        display: flex;
+        gap: var(--space-xxsmall);
+        opacity: 0;
+      }
+      .row:hover .row__actions,
+      .row:focus-within .row__actions,
+      .row--active .row__actions {
+        opacity: 1;
+      }
+      @media (hover: none) {
+        .row__actions {
+          opacity: 1;
+        }
+      }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .icon-button {
+        display: inline-grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--border-radius-small);
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+      .icon-button:hover {
+        background: var(--color-secondary);
+      }
+      .row:hover .icon-button:hover {
+        background: var(--color-background);
+      }
+      .icon-button:focus-visible,
+      .button:focus-visible {
+        outline: var(--focus-outline);
+        outline-offset: var(--focus-outline-offset);
+      }
+      .icon {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-xsmall);
+        min-height: 24px;
+        padding: var(--space-xsmall) var(--space-small);
+        border: 1px solid var(--color-border);
+        border-radius: var(--border-radius-small);
+        background: var(--color-secondary);
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      .button--plain {
+        border-color: transparent;
+        background: transparent;
+      }
+      .button--plain:hover {
+        background: var(--color-secondary);
+      }
+      .button--destructive {
+        color: var(--color-destructive);
+      }
+      .input {
+        flex: 1;
+        min-width: 0;
+        min-height: 24px;
+        padding: 0 var(--space-small);
+        border: 1px solid var(--color-border);
+        border-radius: var(--border-radius-small);
+        background: var(--color-background);
+        color: inherit;
+        font: inherit;
+      }
+      .input:focus-visible {
+        outline: var(--focus-outline);
+        outline-offset: var(--focus-outline-offset);
+      }
+      .confirm {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-small);
+        padding: var(--space-small);
+        border-radius: var(--border-radius-small);
+        background: var(--color-secondary);
+      }
+      .confirm p {
+        margin: 0;
+      }
+      .confirm__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--space-small);
+      }
+      @media (forced-colors: active) {
+        .row--active::before {
+          background: Highlight;
+        }
+        .row:hover {
+          background: Canvas;
+          outline: 1px solid CanvasText;
+        }
+        .button--destructive {
+          color: ButtonText;
+        }
+        .confirm {
+          outline: 1px solid CanvasText;
+        }
+        .icon-button:focus-visible,
+        .button:focus-visible,
+        .input:focus-visible,
+        .row__switch:focus-visible {
+          outline-color: Highlight;
+        }
+      }
+    </style>
+    <script type="module" src="popup.js"></script>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-rename" viewBox="0 0 16 16"><path d="M10.5 2.5l3 3L6 13H3v-3z" /></symbol>
+      <symbol id="i-close" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" /></symbol>
+      <symbol id="i-window" viewBox="0 0 16 16">
+        <rect x="2" y="3" width="12" height="10" rx="1.5" />
+        <path d="M2 6h12" />
+      </symbol>
+    </svg>
+    <header class="bar bar--header"><h1 id="popup-title"></h1></header>
+    <ul class="list" id="groups" aria-labelledby="popup-title"></ul>
+    <footer class="bar bar--footer">
+      <button class="button button--plain" id="new-group" type="button">
+        <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>
+        <span id="new-group-label"></span>
+      </button>
+    </footer>
+  </body>
+</html>

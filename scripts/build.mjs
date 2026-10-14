@@ -9,7 +9,7 @@ await rm(outdir, { recursive: true, force: true });
 await mkdir(outdir, { recursive: true });
 
 await build({
-  entryPoints: { background: "src/background/index.ts" },
+  entryPoints: { background: "src/background/index.ts", popup: "src/popup/index.ts" },
   bundle: true,
   format: "esm",
   target: "firefox140",
@@ -23,3 +23,5 @@ manifest.version = pkg.version;
 await writeFile(`${outdir}/manifest.json`, `${JSON.stringify(manifest, null, 2)}\n`);
 
 await cp("src/_locales", `${outdir}/_locales`, { recursive: true });
+await cp("src/popup/popup.html", `${outdir}/popup.html`);
+await cp("src/shared/tokens.css", `${outdir}/tokens.css`);

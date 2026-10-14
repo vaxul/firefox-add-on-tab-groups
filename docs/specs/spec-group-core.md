@@ -391,3 +391,34 @@ Each issue references this spec path in its body.
   `action` with `default_title` only; `default_popup` follows with the popup
   (D23). A newer stored schema makes every operation fail with an error
   instead of overwriting the stored layout.
+- 2026-10-14: #8 implementation — the popup lives in `src/popup/`:
+  `popup.html` (structure, icon sprite and the prototype's component styles
+  inline; tokens from `tokens.css`), `view.ts` (DOM via `createElement` /
+  `textContent`), `controller.ts` (one request per action, re-render from
+  each response, focus kept across re-renders), `index.ts` (entry). The
+  popup's body replaces the prototype's `.popup` frame: Firefox draws the
+  panel border and radius, so the body has width 300 px and no own border.
+  `src/shared/i18n.ts` lists every locale key the code uses (`MessageKey`);
+  a test checks that `en` and `de` define exactly these keys. Additions to
+  D25: `activeElsewhere` takes `$1` = tab count text ("31 tabs, open in
+  another window") so the punctuation stays in the locale; the list is
+  labelled by the popup heading (`aria-labelledby`) instead of a separate
+  "Groups" string. While an inline rename or confirmation is open, the other
+  rows show no rename/close actions (prototype frames 2 and 3). Rename sends
+  nothing for an empty or unchanged title (D16). The confirmation focuses
+  Cancel; Escape cancels it. On a failed request the popup logs the error and
+  re-renders from `getState` (D21); a failed switch keeps the popup open. No
+  element is focused when the popup opens (the design shows no focus ring).
+  Popup tests run in vitest's `happy-dom` environment (devDependency) against
+  the real background and the fakes; the i18n fake resolves the catalogue by
+  path, since a DOM environment replaces the global `URL`.
+- 2026-10-14: #8 review — a blur of the rename field into another row
+  re-renders only the renamed row, so the click that caused the blur (e.g. a
+  switch right after "New group") is not lost; the other rows get their
+  actions appended in place (keyboard users keep rename/close after Tab). A
+  row patch falls back to a full render when the rows no longer match the
+  groups (`data-group` per row). A blur elsewhere (Tab to "New
+  group") leaves focus where the user moved it. A failed switch keeps focus
+  on the clicked row. The active-elsewhere row carries no `title` (it would
+  repeat the visually hidden text). Whether Escape in the rename field or
+  the confirmation closes the Firefox popup is checked in QA.

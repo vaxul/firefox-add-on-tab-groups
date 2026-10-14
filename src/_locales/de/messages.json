@@ -12,5 +12,49 @@
   "actionTitle": {
     "message": "Tab Groups — $1",
     "description": "Toolbar button tooltip; $1 is the title of the window's active group."
+  },
+  "popupTitle": {
+    "message": "Tab Groups",
+    "description": "Heading of the popup."
+  },
+  "newGroup": {
+    "message": "Neue Gruppe",
+    "description": "Footer button that creates a group."
+  },
+  "renameGroup": {
+    "message": "Gruppe $1 umbenennen",
+    "description": "Rename button label; $1 is the group title."
+  },
+  "closeGroup": {
+    "message": "Gruppe $1 schließen",
+    "description": "Close button label and confirmation label; $1 is the group title."
+  },
+  "groupNameLabel": {
+    "message": "Gruppenname",
+    "description": "Label of the inline rename field."
+  },
+  "tabCountOne": {
+    "message": "$1 Tab",
+    "description": "Tab count for exactly one tab; $1 is the number."
+  },
+  "tabCountOther": {
+    "message": "$1 Tabs",
+    "description": "Tab count for any other number of tabs; $1 is the number."
+  },
+  "activeElsewhere": {
+    "message": "$1, in einem anderen Fenster geöffnet",
+    "description": "Screen reader text of a group shown in another window; $1 is the tab count text."
+  },
+  "closeGroupConfirm": {
+    "message": "„$1“ mit $2 schließen?",
+    "description": "Inline close confirmation; $1 is the group title, $2 the tab count text."
+  },
+  "cancel": {
+    "message": "Abbrechen",
+    "description": "Button that dismisses the close confirmation."
+  },
+  "closeGroupAction": {
+    "message": "Gruppe schließen",
+    "description": "Button that confirms closing a group."
   }
 }

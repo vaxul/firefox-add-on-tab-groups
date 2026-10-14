@@ -1,0 +1,27 @@
+/* Design tokens (docs/design.md front-matter), moved unchanged from the
+   prototype docs/design/prototypes/group-core.html. */
+:root {
+  color-scheme: light dark;
+  --color-background: light-dark(#ffffff, #42414d);
+  --color-foreground: light-dark(#15141a, #fbfbfe);
+  --color-primary: light-dark(#0061e0, #00ddff);
+  --color-secondary: light-dark(#f0f0f4, #2b2a33);
+  --color-accent: light-dark(#0061e0, #00ddff);
+  --color-muted: light-dark(#5b5b66, #bfbfc9);
+  --color-border: color-mix(in srgb, currentColor 24%, transparent);
+  --color-destructive: light-dark(#c50042, #ff848b);
+  --font-sans: system-ui;
+  --font-size-small: 12px;
+  --font-size-root: 13px;
+  --font-size-large: 15px;
+  --font-weight-bold: 600;
+  --space-xxsmall: 2px;
+  --space-xsmall: 4px;
+  --space-small: 8px;
+  --space-medium: 12px;
+  --space-large: 16px;
+  --border-radius-small: 4px;
+  --border-radius-medium: 8px;
+  --focus-outline: 2px solid var(--color-accent);
+  --focus-outline-offset: 2px;
+}
