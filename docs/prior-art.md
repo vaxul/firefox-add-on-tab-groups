@@ -49,7 +49,7 @@
 
 ### drive4ik/simple-tab-groups — behaviour reference
 
-- Path: `docs/BEHAVIOR-TABGROUPS.md` (facts numbered by section, verified on Firefox 154)
+- Path: `docs/BEHAVIOR-TABGROUPS.md` (facts numbered by section, verified on Firefox 154); also `docs/BEHAVIOR-MOVE-TABS.md`, `BEHAVIOR-CREATE-TABS.md`, `BEHAVIOR-REMOVE-TABS.md`, `BEHAVIOR-LIFECYCLE.md`, `DESIGN-EVENTS.md`, `DESIGN-GROUPS.md` (cited as F1–F10 in `docs/specs/spec-group-core.md`)
 - License: MPL-2.0
 - Verdict: reference-only — read in full before speccing Phase 1; answers V1/V2 of the grilling decisions
 - Date: 2026-10-14
@@ -57,7 +57,7 @@
   - ADOPT §4: hidden tabs keep their `groupId`; a group with all tabs hidden leaves an unremovable empty header — ungroup before hide
   - ADOPT §3: group only visible tabs (`tabs.group` on hidden tabs yields an empty header); order of `tabIds` sets in-group order
   - ADOPT §5: native group ids are not settable and change on re-group/restore — use an own stable key
-  - ADOPT §9: ungrouping the last member removes the group and fires `tabGroups.onRemoved`
+  - ADOPT §9: ungrouping the last member removes the group and fires `tabGroups.onRemoved`; `tabs.hide` silently skips the active tab and resolves with the ids it hid
   - ADOPT §26: `tabs.remove` over a whole group or closing a window creates an API-invisible "saved group"; `tabs.ungroup` does not — ungroup before removing
   - ADOPT §1/§2/§11/§20: `tabs.move` changes membership based on the tab at the target slot; batch moves to `index: -1` can pull tabs into a group
   - ADOPT §14/§17: some changes fire no events — re-read tab state instead of trusting events alone

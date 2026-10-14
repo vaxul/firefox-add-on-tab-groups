@@ -230,7 +230,7 @@
       <symbol id="i-window" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M2 6h12" /></symbol>
     </svg>
 
-    <!-- Frame 1: group list (D17 marker, D21 counts, active-elsewhere marker) -->
+    <!-- Frame 1: group list (D20 active-here / active-elsewhere markers, D21 counts) -->
     <figure>
       <figcaption>1 · Group list</figcaption>
       <div class="popup">
@@ -284,16 +284,19 @@
       </div>
     </figure>
 
-    <!-- Frame 2: inline rename (D15 after create, D16 Enter/blur saves, Escape cancels) -->
+    <!-- Frame 2: inline rename right after "New group" (D15: appended, no switch; D16 Enter/blur saves, Escape cancels) -->
     <figure>
       <figcaption>2 · Inline rename</figcaption>
       <div class="popup">
         <header class="bar bar--header"><h1>Tab Groups</h1></header>
         <ul class="list" aria-label="Groups">
-          <li class="row">
-            <button class="row__switch"><span class="row__title">Research</span><span class="row__meta" aria-hidden="true">12</span><span class="visually-hidden">12 tabs</span></button>
-          </li>
           <li class="row row--active">
+            <button class="row__switch" aria-current="true"><span class="row__title">Research</span><span class="row__meta" aria-hidden="true">12</span><span class="visually-hidden">12 tabs</span></button>
+          </li>
+          <li class="row">
+            <button class="row__switch"><span class="row__title">Work</span><span class="row__meta" aria-hidden="true"><svg class="icon"><use href="#i-window" /></svg>31</span><span class="visually-hidden">31 tabs, open in another window</span></button>
+          </li>
+          <li class="row">
             <input class="input" type="text" value="Group 5" aria-label="Group name" autofocus />
           </li>
         </ul>

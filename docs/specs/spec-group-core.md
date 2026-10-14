@@ -12,15 +12,18 @@ A completed spec is moved to `docs/specs/archive/`.
 
 ## Outcome
 
-- [ ] `test/fakes/` provides in-memory fakes of `tabs`, `windows`, `sessions`,
-      `storage` (`local` and `session`) and `action`, each with a `reset()`, plus
-      contract tests that encode the observed Firefox behaviour listed under
-      Constraints (F1–F9).
+- [ ] `test/fakes/` provides in-memory fakes of `tabs` (incl. `hidden`,
+      `pinned`, `active`, `discarded`, `lastAccessed`, native `groupId`,
+      `ungroup`, sharing state), `windows`, `sessions`, `storage` (`local` and
+      `session`), `action`, `runtime` (messages, `onStartup`), `i18n` and a
+      Web Locks stand-in, each with a `reset()`, plus `simulateRestart()` and
+      `simulateDisableEnable()` (see Verification), and contract tests that
+      encode the observed Firefox behaviour listed under Constraints (F1–F10).
 - [ ] On first start every open normal window gets its own group that holds all
       of its non-pinned tabs; no tab is hidden by the first start.
 - [ ] Every window shows exactly one group. Every visible non-pinned tab belongs
-      to its window's active group (the **window invariant**); a group is active
-      in at most one window.
+      to its window's active group, except tabs `tabs.hide` skipped (D8) — the
+      **window invariant**; a group is active in at most one window.
 - [ ] Switching a window to another group shows exactly that group's tabs and
       hides the previous group's tabs. Pinned tabs stay visible and ungrouped.
 - [ ] Switching to a group that is active in another window focuses that window
@@ -36,11 +39,14 @@ A completed spec is moved to `docs/specs/archive/`.
 - [ ] The popup lists all groups in stored order with title, tab count, a marker
       for the current window's active group and a marker for groups active in
       another window; the user can switch, create, rename, and close groups from
-      it. Closing the last group leaves one new empty default group.
+      it. Closing the last group leaves one new default group with one new tab.
 - [ ] The toolbar badge shows the number of groups; the toolbar tooltip names the
       current window's active group.
 - [ ] A group switch in a window with 200 tabs completes in under 500 ms.
-- [ ] Every user-facing string exists in the `en` and `de` locales.
+- [ ] Every user-facing string exists in the `en` and `de` locales (keys listed
+      in D25).
+- [ ] `docs/architecture.md` flows 1 and 4 and the `test/fakes/` row match this
+      spec (updated in the spec PR).
 
 ## Scope
 
@@ -53,7 +59,7 @@ A completed spec is moved to `docs/specs/archive/`.
 - Window reconciliation on first install, browser start, extension enable, and
   for windows the user opens or restores.
 - New, attached, and restored tabs.
-- Operation queue with event deferral.
+- Operation serialisation with event deferral (Web Locks, D5).
 - Minimal popup: group list, switch, create, rename, close (incl. last and empty
   group), with tokens in `src/shared/tokens.css`.
 - Toolbar badge and tooltip.
@@ -76,7 +82,8 @@ A completed spec is moved to `docs/specs/archive/`.
 ## Constraints
 
 - `docs/constitution.md` applies in full; in particular: no mutable module-level
-  state except the operation queue it mandates, `src/core/` free of `browser`,
+  state (D5 serialises through Web Locks instead of a module variable),
+  `src/core/` free of `browser`,
   `tabs.ungroup` before `tabs.hide` and `tabs.show` before `tabs.group`, tabs of
   a native group ungrouped before `tabs.remove`, no `innerHTML`, all strings via
   `browser.i18n`, 50-line functions, 400-line files.
@@ -109,7 +116,11 @@ A completed spec is moved to `docs/specs/archive/`.
   - F8: No `runtime.onInstalled` on a plain restart or on enable
     (LIFECYCLE §1); windows already exist at background start (CREATE §55).
   - F9: Pinning strips native-group membership; `sessions` values survive pin
-    and unpin (TABGROUPS §19).
+    and unpin (TABGROUPS §19, which also covers the microphone case of F1).
+  - F10 (unverified, confirmed in QA): disabling an extension that hid tabs
+    shows those tabs again; on enable they are visible with their `sessions`
+    values intact (LIFECYCLE: disable → enable fires no event, storage and
+    values survive).
 
 ## Prior art
 
@@ -143,31 +154,31 @@ group count, title = active group name) and the `GroupsFrame` popup actions.
 
 | Decision | Rationale | Date |
 |---|---|---|
-| D1 Persisted layout: `storage.local` holds `{ schemaVersion: 1, groups: [{ id, title }] }`; array order is the group order. Tab value `groupId` (group id string) per tab; window value `activeGroupId` per window. No other persisted state in Phase 1. | Constitution (group list in `storage.local`, membership in `sessions`); first persisted layout, so `SCHEMA_VERSION` stays 1 and no migration is needed. | 2026-10-14 |
-| D2 Group id = `crypto.randomUUID()`. | STG precedent (`createId`); no counter to serialise, ids stay unique across import later. | 2026-10-14 |
-| D3 Default title = i18n `defaultGroupTitle` ("Group $1" / "Gruppe $1") with the smallest positive integer whose title is not in use. | Readable, stable, no UUID fragments; PTG's "N: Unnamed group" mixed id and name. | 2026-10-14 |
-| D4 The window invariant: every visible non-pinned tab belongs to its window's active group. All event handlers and reconciliation enforce it after re-reading state; handlers are idempotent instead of using skip flags. | Constitution (no module state, re-read on each event); makes late events of own actions (F4) harmless. | 2026-10-14 |
-| D5 Operation queue: one promise chain in the background serialises every state-changing operation, including event handlers; an event that arrives while an operation runs is queued behind it and evaluated against re-read state. The chain tail is the only module-level mutable value. | Constitution mandates the queue; it carries no domain state and does not outlive the event page. | 2026-10-14 |
-| D6 Switch order in window W from group A to B: (1) if B is active in another window, focus it and stop; (2) move B's tabs hidden in other windows to the end of W as one block, re-write their `sessions` values (F3); (3) `tabs.show` B's tabs; (4) activate B's most recently accessed tab, or create one new tab in W without `url` if B is empty (F6); (5) set W's `activeGroupId` = B; (6) `tabs.ungroup` A's natively grouped tabs; (7) `tabs.hide` A's tabs; (8) update tooltip. `tabs.show`/`tabs.hide`/`tabs.move` are called once per switch with id arrays. | STG `applyNow` order; F1 (activate before hide); constitution (ungroup before hide); batched calls for the 200-tab target. | 2026-10-14 |
-| D7 Pinned tabs carry no membership, are never hidden, and are ignored by every count and plan. A tab that gets pinned loses its `groupId` value; a tab that gets unpinned joins its window's active group. | STG precedent (DESIGN-GROUPS §1); F9. | 2026-10-14 |
-| D8 Tabs that `tabs.hide` skipped (sharing camera/microphone/screen) keep their membership and stay visible; the switch still completes. The next switch or reconciliation in that window hides them again. Marking them in the popup is Phase 5. | F1; avoids STG's auto-pinning, which changes the user's tab state. | 2026-10-14 |
-| D9 Reconciliation of a window (runs for every window on start, and for a window from `windows.onCreated`): resolve the active group — the stored `activeGroupId` if it exists and no other window has it, else a new default group; assign every visible non-pinned tab without a valid membership, or with another group's membership, to it; show hidden tabs of the active group; leave hidden tabs of other groups hidden unless that group is active in another window, then move them there; assign hidden tabs without a valid membership to the active group and show them. On first install with an empty group list, each window gets a new group. | Enforces D4 everywhere with one routine; F2 and F7 make restored tabs and windows carry their values; never leaves an orphaned tab invisible. | 2026-10-14 |
-| D10 Start detection: at top level the background checks a `storage.session` flag; if it is absent, it queues a full reconciliation of all normal windows and sets the flag. | F8 — `onInstalled`/`onStartup` miss enable after disable; `storage.session` is cleared on restart, reload, and disable, and is not module state. | 2026-10-14 |
-| D11 New and attached tabs: `tabs.onCreated`, `tabs.onAttached`, and `tabs.onUpdated` (`pinned`, `hidden`) queue a re-check of that tab against D4. A hidden tab with a valid membership is left alone. A tab dragged into another window joins that window's active group. | STG `onAttached` precedent; D4. Covers undo-close-tab (visible restored tab joins the window's group) and restored windows (F7). | 2026-10-14 |
+| D1 Persisted layout: `storage.local` holds `{ schemaVersion: 1, groups: [{ id, title }] }`; array order is the group order. Tab value `tgGroupId` (group id string) per tab; window value `tgActiveGroupId` per window; `storage.session` key `tgStarted` (D10). No other persisted state in Phase 1. | Constitution (group list in `storage.local`, membership in `sessions`); first persisted layout, so `SCHEMA_VERSION` stays 1 and no migration is needed. The `tg` prefix keeps the keys apart from the native `tab.groupId` and PTG's legacy `groupId`. | 2026-10-14 |
+| D2 Group id = `crypto.randomUUID()`. | STG precedent (`createId`); no counter to serialise, ids stay unique across import later. Replaces assumption A6 (counter per window) of the grilling session. | 2026-10-14 |
+| D3 Default title = i18n `defaultGroupTitle` ("Group $1" / "Gruppe $1") with the smallest positive integer whose title is not in use. `src/core/` receives a `formatTitle(n)` function as a parameter and never calls `i18n`. | Readable, stable, no UUID fragments; PTG's "N: Unnamed group" mixed id and name; core stays free of `browser`. | 2026-10-14 |
+| D4 The window invariant: every visible non-pinned tab belongs to its window's active group, except tabs `tabs.hide` skipped (D8). All event handlers and reconciliation enforce it after re-reading state; handlers are idempotent instead of using skip flags. | Constitution (no module state, re-read on each event); makes late events of own actions (F4) harmless. | 2026-10-14 |
+| D5 Serialisation: every state-changing operation, including event handlers, runs inside `navigator.locks.request("tab-groups-op", fn)`; an event that arrives while an operation runs waits for the lock and is evaluated against re-read state. The lock function is injected so tests use an in-memory fake. A rejected operation is caught and logged, releases the lock, and queues a D9 reconciliation of the affected window(s), so a half-applied switch is repaired at once. | Constitution: serialising queue without mutable module-level state — the lock queue lives in the browser, not in a module variable; Web Locks exist in Firefox ≥ 96 on secure `moz-extension:` pages. | 2026-10-14 |
+| D6 Switch order in window W from group A to B: (1) if B is active in another window, focus it and stop; (2) move B's tabs hidden in other windows to the end of W as one block, re-write their `sessions` values (F3); (3) `tabs.show` B's tabs; (4) activate B's most recently accessed tab (`lastAccessed`), or create one new tab in W without `url` if B is empty (F6); (5) set W's `tgActiveGroupId` = B; (6) `tabs.ungroup` A's natively grouped tabs; (7) `tabs.hide` A's tabs; (8) update W's tooltip. `tabs.show`/`tabs.hide`/`tabs.move` are called once per switch with id arrays. `docs/architecture.md` flow 1 is updated to this order. | STG `applyNow` order; F1 (activate before hide); constitution (ungroup before hide, show before group); batched calls for the 200-tab target. | 2026-10-14 |
+| D7 Pinned tabs carry no membership, are never hidden, and are ignored by every count and plan. A tab that gets pinned loses its `tgGroupId` value; a tab that gets unpinned joins its window's active group. | STG precedent (DESIGN-GROUPS §1); F9. | 2026-10-14 |
+| D8 Tabs that `tabs.hide` skipped (sharing camera/microphone/screen) keep their membership and stay visible; the switch still completes. They are the only exception to D4. The next switch or reconciliation in that window tries to hide them again (D9 "hide, keep membership"). Marking them in the popup is Phase 5. | F1; avoids STG's auto-pinning, which changes the user's tab state. | 2026-10-14 |
+| D9 Reconciliation of a window (runs for every normal window on start, and for a window from `windows.onCreated`): (a) resolve the active group — the stored `tgActiveGroupId` if the group exists and no other window keeps it (on a tie the focused window keeps it, else the one with the lowest window id), else a new default group; (b) a tab (visible or hidden) without a valid membership joins the active group; (c) tabs of the active group are shown; (d) tabs of another group that is active in another window move there; (e) tabs of another group that is active nowhere are hidden and keep their membership — this also re-hides tabs Firefox showed while the extension was disabled (F10) and sharing tabs (D8). On first install with an empty group list, each window gets a new group that adopts its tabs via (b). | Enforces D4 with one routine; F2, F7, F10 make restored and re-shown tabs carry their values, so memberships survive restart and disable/enable (vision: 0 lost assignments); never leaves an orphaned tab invisible. `docs/architecture.md` flow 4 is updated. | 2026-10-14 |
+| D10 Start detection: the top level registers `runtime.onStartup` and `runtime.onInstalled` listeners and also runs the check once at top level; the check reads `storage.session` key `tgStarted` and, if it is absent, sets it and runs D9 for all normal windows inside the lock. | F8 — `onInstalled`/`onStartup` miss enable after disable; `storage.session` is cleared on restart, reload, and disable and is not module state; the `onStartup` listener makes Firefox wake the event page at launch. | 2026-10-14 |
+| D11 Tab events: `tabs.onCreated`, `tabs.onAttached`, and `tabs.onUpdated` (filter `properties: ["pinned", "hidden"]`) re-check that one tab inside the lock: a hidden tab with a valid membership is left alone; a visible non-pinned tab without a valid membership, or with another group's membership, joins its window's active group (it is reassigned, never switched to). This covers new tabs, tabs dragged into another window, undo-close-tab, and a hidden tab the user shows from the all-tabs list. Tabs in non-`normal` windows are ignored. Window-wide repair stays D9's job. | STG `onAttached` precedent; D4. Restored windows keep their values (F7), so their visible tabs already match the restored active group. | 2026-10-14 |
 | D12 A user-opened normal window gets a new default group via D9 that adopts its tabs. | Vision: every window shows exactly one group; STG's "window without group" mode contradicts it. | 2026-10-14 |
 | D13 Phase 1 ungroups natively grouped tabs before hiding them without recording the native group; record and restore arrive in Phase 2. | Constitution rule (ungroup before hide) is binding; leaving native groups intact would leave dead headers (vision problem statement). Phase 1 is not released (first release after Phase 4, `docs/roadmap.md`). | 2026-10-14 |
 | D14 Closing a group: if it is active in a window, that window first switches to the next group in list order that is not active elsewhere (the previous one for the last row); if none exists, to a new default group. Then the group's natively grouped tabs are ungrouped, its tabs removed with one `tabs.remove`, and the group deleted from the list. A group with tabs asks for an inline confirmation in the popup; an empty group closes without one. | Switching first keeps the window alive (F5); ungroup before remove (constitution, avoids saved groups); inline confirmation per `docs/design.md`; A5 of the grilling session. | 2026-10-14 |
-| D15 Creating a group from the popup appends it to the list, switches the current window to it (one new tab), and opens the inline rename field. | PTG `createGroup` precedent. | 2026-10-14 |
+| D15 Creating a group from the popup appends it with a D3 title and opens the inline rename field in its row; the current window does not switch. Enter or blur saves (D16); switching is a separate click. | Resolves the conflict with D20 (popup closes on switch) and avoids depending on the popup surviving tab activation. | 2026-10-14 |
 | D16 Rename is inline: Enter or blur saves a trimmed non-empty title, Escape cancels; an empty title keeps the old one. | PTG precedent; no empty titles in the list. | 2026-10-14 |
-| D17 Badge text = number of groups (global); tooltip per window = i18n `actionTitle` ("Tab Groups — $1" with the active group title) via `action.setTitle({ windowId })`. Badge background uses the token `muted`. | PTG `setActionTitle` precedent adapted to global groups; i18n instead of PTG's hard-coded string. | 2026-10-14 |
+| D17 Badge text = number of groups (global, `action.setBadgeText` without `windowId`); badge colour stays the Firefox default. Tooltip per window = i18n `actionTitle` ("Tab Groups — $1" with the active group title) via `action.setTitle({ windowId })`. | PTG `setActionTitle` precedent adapted to global groups; i18n instead of PTG's hard-coded string; a light/dark token pair cannot be passed to `setBadgeBackgroundColor`. | 2026-10-14 |
 | D18 Private windows are not supported: `"incognito": "not_allowed"`. | STG precedent; tabs cannot move between private and normal windows, which breaks global groups. Replaces assumption A4 of the grilling session. | 2026-10-14 |
 | D19 Permissions: `storage` (group list, start flag), `sessions` (membership, active group), `tabHide` (`tabs.hide`). No `tabs` permission: Phase 1 shows no tab titles or URLs. No host permissions. | Constitution: every new permission justified in its spec; least privilege. | 2026-10-14 |
-| D20 The popup reads state through a `getState` message (groups with id, title, tab count, active-here, active-elsewhere) and sends `switchGroup`, `createGroup`, `renameGroup`, `closeGroup`; it re-renders from each response. After a switch or a focus change the popup closes. | Architecture boundary (popup only via `shared` messages); no live sync needed for a short-lived popup. | 2026-10-14 |
+| D20 Messages (types in `src/shared/messages.ts`): `getState`, `switchGroup { groupId }`, `createGroup`, `renameGroup { groupId, title }`, `closeGroup { groupId }`, each with `windowId`. State = `{ groups: [{ id, title, tabCount, activeHere, activeElsewhere }] }`. The popup re-renders from each response. After `switchGroup` the popup closes. | Architecture boundary (popup only via `shared` messages); no live sync needed for a short-lived popup. | 2026-10-14 |
 | D21 The popup reads its window id once with `windows.getCurrent()` (read-only) and sends it with every message. Each response is `{ ok: true, state }` or `{ ok: false, error }`; on `ok: false` the popup logs the error and re-renders from a fresh `getState`. Tab count = non-pinned tabs with that membership in all windows, hidden ones included. | Architecture allows read-only access; the background must know which window acts. | 2026-10-14 |
-| D22 Badge text is refreshed after reconciliation, create, and close; tooltips after reconciliation, switch, rename, and close. `tabs.onUpdated` listens with the filter `properties: ["pinned", "hidden"]`. | Only these operations change the shown values; the filter keeps the event page asleep on unrelated updates. | 2026-10-14 |
-| D23 Build: `scripts/build.mjs` gains the entry `popup` (`src/popup/index.ts`) and copies `src/popup/popup.html` and `src/shared/tokens.css`; the manifest gets `action.default_popup` and `action.default_title`. | Existing esbuild script stays the single build path (constitution tech stack). | 2026-10-14 |
-| D24 Closing a window (or its last visible tab, F5) closes the hidden tabs of other groups stored in that window; Phase 1 accepts this. Groups stay in the list (possibly empty); reopening the window through Firefox "Recently closed windows" brings the tabs back with their membership, and D9 reconciles the restored window. Recovering the tabs automatically (STG `tryRestoreMissedTabs` approach) is a separate later roadmap phase, seeded via `/loopkit:roadmap`. | Resolved at the spec-acceptance gate by the maintainer: Phase 1 is not released; automatic recovery needs the closed tabs' URLs and memberships, which the event page cannot read after the close without a persisted snapshot — a design question of its own. | 2026-10-14 |
-
+| D22 Badge text is refreshed after reconciliation, create, and close; tooltips after reconciliation, switch, rename, and close. | Only these operations change the shown values. | 2026-10-14 |
+| D23 Build: `scripts/build.mjs` gains the entry `popup` (`src/popup/index.ts`) and copies `src/popup/popup.html` and `src/shared/tokens.css`; the manifest gets `action.default_popup` (`popup.html`) and `action.default_title` (`__MSG_extensionName__`). | Existing esbuild script stays the single build path (constitution tech stack). | 2026-10-14 |
+| D24 Closing a window (or its last visible tab, F5) closes the hidden tabs of other groups stored in that window; Phase 1 accepts this. Groups stay in the list (possibly empty); reopening the window through Firefox "Recently closed windows" brings the tabs back with their membership, and D9 reconciles the restored window. Recovering the tabs automatically (STG `tryRestoreMissedTabs` approach) is a separate later roadmap phase, seeded via `/loopkit:roadmap` before Phase 4 (first release), because the roadmap north star promises no lost tab. | Resolved at the spec-acceptance gate by the maintainer: Phase 1 is not released; automatic recovery needs the closed tabs' URLs and memberships, which the event page cannot read after the close without a persisted snapshot — a design question of its own. | 2026-10-14 |
+| D25 Locale keys (`en` and `de`): `extensionName`, `extensionDescription`, `defaultGroupTitle`, `actionTitle`, `popupTitle`, `newGroup`, `renameGroup` / `closeGroup` (button labels with `$1` = group title), `groupNameLabel`, `tabCountOne` / `tabCountOther` (`$1` tabs; `One` for n = 1, `Other` otherwise — correct for `en` and `de`), `activeElsewhere`, `closeGroupConfirm` (`$1` title, `$2` tab count text), `cancel`, `closeGroupAction`. | Constitution: every user-facing string via `browser.i18n`, both locales complete; `browser.i18n` has no plural rules. | 2026-10-14 |
 ## Design
 
 - Switch sequence (D6):
@@ -175,7 +186,7 @@ group count, title = active group name) and the `GroupsFrame` popup actions.
 ```mermaid
 sequenceDiagram
   participant P as Popup
-  participant Q as Background queue
+  participant Q as Background (lock)
   participant C as core planner
   participant X as platform executor
   P->>Q: switchGroup(B)
@@ -185,9 +196,9 @@ sequenceDiagram
   Q->>X: move B tabs into W (rewrite values)
   Q->>X: show B tabs
   Q->>X: activate B tab / create new tab
-  Q->>X: set W activeGroupId = B
+  Q->>X: set W tgActiveGroupId = B
   Q->>X: ungroup A tabs, hide A tabs
-  Q->>X: update badge + tooltip
+  Q->>X: update W tooltip
   Q-->>P: done (popup closes)
 ```
 
@@ -212,7 +223,7 @@ Each issue references this spec path in its body.
 ## Verification
 
 - [ ] `npm run verify` passes, including the 80 % line coverage of `src/core/`.
-- [ ] Fake contract tests cover F1–F9.
+- [ ] Fake contract tests cover F1–F9; F10 is modelled by `simulateDisableEnable()` and confirmed in QA.
 - [ ] Unit tests of the core planners cover: switch with active tab in the
       outgoing group, switch to an empty group, switch to a group hidden in
       another window, switch to a group active elsewhere (focus only), sharing
@@ -220,20 +231,26 @@ Each issue references this spec path in its body.
       last / an empty group, D3 default titles, D9 reconciliation cases (missing,
       unknown, duplicate active group; orphan visible and hidden tabs; tabs of a
       group active elsewhere).
-- [ ] Integration tests against the fakes: first install with two windows;
-      new tab and attached tab join the active group; a fake restart (new tab
-      and window ids, values and hidden state kept, `storage.session` cleared)
-      loses 0 assignments; one switch issues one `tabs.hide` and one
+- [ ] Integration tests in `test/integration/` against the fakes, importing
+      the background entry after `vi.resetModules()` so the D10 top-level check
+      runs per simulated start: first install with two windows; new tab and
+      attached tab join the active group; `simulateRestart()` (new tab and
+      window ids, `sessions` values and hidden state kept, `storage.session`
+      cleared) loses 0 assignments; `simulateDisableEnable()` (all hidden tabs
+      shown, values kept, `storage.session` cleared) loses 0 assignments and
+      re-hides the inactive groups; an operation that throws mid-switch leaves
+      the window reconciled (D5); one switch issues one `tabs.hide` and one
       `tabs.show` call.
 - [ ] QA in Firefox (`npm start`): first start keeps all tabs visible in one
       group per window; create, rename, switch, and close groups from the popup;
       close the last group; switch to an empty group; switch to a group active in
       another window focuses it; restart Firefox and confirm every window shows
-      its previous group with all tabs; disable and enable the extension;
-      badge and tooltip match.
+      its previous group with all tabs; disable the extension (confirm F10:
+      hidden tabs appear) and enable it again (inactive groups hidden again,
+      memberships kept); badge and tooltip match.
 - [ ] QA in Firefox: a window with 200 tabs (two groups of 100) switches in
       under 500 ms (measured in the background console with
-      `performance.now()` around the queued operation).
+      `performance.now()` around the locked operation).
 - [ ] QA in Firefox: the popup in light and dark mode and with `forced-colors`
       matches the design artifact; every action works by keyboard.
 
@@ -241,7 +258,7 @@ Each issue references this spec path in its body.
 
 | Risk | Mitigation |
 |---|---|
-| Fakes diverge from Firefox behaviour | Contract tests encode F1–F9 from the STG behaviour docs; QA runs every flow in real Firefox. |
+| Fakes diverge from Firefox behaviour | Contract tests encode F1–F10 from the STG behaviour docs; QA runs every flow in real Firefox. |
 | Late events of own operations re-trigger work (F4) | D4/D11 idempotent re-checks against re-read state instead of skip flags. |
 | Event page unloads during a long operation | Firefox keeps the page alive while listeners run and promises are pending; every operation is short and re-reads state, so a restart resumes via D10. |
 | Native groups are lost on switch until Phase 2 | D13; Phase 1 is not released. |
@@ -254,6 +271,11 @@ Each issue references this spec path in its body.
   D17, D18; findings recorded under Prior art.
 - 2026-10-14: Spec-acceptance gate — window close (D24) resolved by the
   maintainer: accept in Phase 1, automatic recovery as a later roadmap phase.
+- 2026-10-14: Spec review (REQUEST_CHANGES) addressed: D9 hides tabs of
+  inactive groups instead of adopting them (disable/enable, F10); D8 is the
+  only D4 exception; D15 no longer switches (conflict with D20); D5 uses Web
+  Locks instead of a module-level promise chain (constitution); architecture
+  flows 1 and 4 and the fakes row updated; keys prefixed `tg`; D25 locale keys.
 - 2026-10-14: Design review of the popup prototype — row actions use opacity
   instead of `visibility` so they stay keyboard- and screen-reader-reachable;
   tab counts carry visually hidden text; destructive text only on the
